@@ -10,18 +10,30 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+const allowedOrigins = ['http://localhost:5173', 'https://quote-management-system-57438.web.app'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser requests
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = `CORS policy does not allow access from origin ${origin}`;
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  }
+}));
+
 const upload = multer({ dest: "uploads/" });
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 app.post("/send", upload.fields([
   { name: "quoteFile" },
-  { name: "conversationFile" }
+  { name: "conversation" }
 ]), async (req, res) => {
-  const { emailBody, subject, recipientEmail, conversationLink } = req.body;
+  const { message, subject, to, conversationLink } = req.body;
   const quoteFile = req.files["quoteFile"]?.[0];
-  const convFile = req.files["conversationFile"]?.[0];
+  const convFile = req.files["conversation"]?.[0];
 
   try {
     const attachments = [];
@@ -44,14 +56,11 @@ app.post("/send", upload.fields([
       });
     }
 
-    let fullBody = emailBody;
-    if (conversationLink) {
-      fullBody += `\n\nConversation Link: ${conversationLink}`;
-    }
+    const fullBody = message + (conversationLink ? `\n\nConversation Link: ${conversationLink}` : '');
 
     await resend.emails.send({
       from: process.env.RESEND_SENDER,
-      to: recipientEmail,
+      to,
       subject,
       text: fullBody,
       attachments,
@@ -60,12 +69,13 @@ app.post("/send", upload.fields([
     if (quoteFile) fs.unlinkSync(quoteFile.path);
     if (convFile) fs.unlinkSync(convFile.path);
 
-    res.status(200).send("✅ Email sent via Resend");
+    res.status(200).json({ message: "Email sent via Resend" });
   } catch (error) {
     console.error("❌ Resend error:", error);
     res.status(500).send("Failed to send email.");
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Resend email server running on port ${PORT}`);
