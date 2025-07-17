@@ -1,4 +1,4 @@
-// email-backend/server.cjs (Resend version)
+// email-backend/server.cjs (Resend version with attachments ready)
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -14,8 +14,8 @@ const allowedOrigins = ['http://localhost:5173', 'https://quote-management-syste
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow non-browser requests
-    if (allowedOrigins.indexOf(origin) === -1) {
+    if (!origin) return callback(null, true);
+    if (!allowedOrigins.includes(origin)) {
       const msg = `CORS policy does not allow access from origin ${origin}`;
       return callback(new Error(msg), false);
     }
@@ -24,7 +24,6 @@ app.use(cors({
 }));
 
 const upload = multer({ dest: "uploads/" });
-
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 app.post("/send", upload.fields([
@@ -36,40 +35,39 @@ app.post("/send", upload.fields([
   const { message, subject, to, conversationLink } = req.body;
   console.log("➡️ Sending email to:", to);
 
-  // const quoteFile = req.files["quoteFile"]?.[0];
-  // const convFile = req.files["conversation"]?.[0];
+  const quoteFile = req.files["quoteFile"]?.[0];
+  const convFile = req.files["conversation"]?.[0];
 
   try {
-    // const attachments = [];
+    const attachments = [];
 
-    // if (quoteFile) {
-    //   const content = fs.readFileSync(quoteFile.path).toString("base64");
-    //   attachments.push({
-    //     filename: quoteFile.originalname,
-    //     content,
-    //     type: quoteFile.mimetype,
-    //   });
-    // }
+    if (quoteFile) {
+      const content = fs.readFileSync(quoteFile.path).toString("base64");
+      attachments.push({
+        filename: quoteFile.originalname,
+        content,
+        type: quoteFile.mimetype,
+      });
+    }
 
-    // if (convFile) {
-    //   const content = fs.readFileSync(convFile.path).toString("base64");
-    //   attachments.push({
-    //     filename: convFile.originalname,
-    //     content,
-    //     type: convFile.mimetype,
-    //   });
-    // }
+    if (convFile) {
+      const content = fs.readFileSync(convFile.path).toString("base64");
+      attachments.push({
+        filename: convFile.originalname,
+        content,
+        type: convFile.mimetype,
+      });
+    }
 
     const fullBody = message + (conversationLink ? `\n\nConversation Link: ${conversationLink}` : '');
     const sender = req.body.sender || "onboarding@resend.dev";
 
-    // Log the full email payload being sent (for debug)
     console.log("📤 Sending email payload:", {
       from: sender,
       to,
       subject,
       text: fullBody,
-      // attachments, // leave commented
+      attachments: attachments.map(a => a.filename)
     });
 
     await resend.emails.send({
@@ -77,11 +75,11 @@ app.post("/send", upload.fields([
       to,
       subject,
       text: fullBody,
-      // attachments, // attachments disabled for testing
+      attachments,
     });
 
-    // if (quoteFile) fs.unlinkSync(quoteFile.path);
-    // if (convFile) fs.unlinkSync(convFile.path);
+    if (quoteFile) fs.unlinkSync(quoteFile.path);
+    if (convFile) fs.unlinkSync(convFile.path);
 
     console.log("✅ Email sent via Resend");
     res.status(200).json({ message: "Email sent via Resend" });
