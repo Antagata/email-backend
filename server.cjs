@@ -61,7 +61,7 @@ app.post("/send", upload.fields([
     // }
 
     const fullBody = message + (conversationLink ? `\n\nConversation Link: ${conversationLink}` : '');
-    const sender = req.body.sender || process.env.RESEND_SENDER;
+    const sender = req.body.sender || "onboarding@resend.dev";
 
     // Log the full email payload being sent (for debug)
     console.log("📤 Sending email payload:", {
