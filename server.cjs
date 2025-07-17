@@ -31,6 +31,9 @@ app.post("/send", upload.fields([
   { name: "quoteFile" },
   { name: "conversation" }
 ]), async (req, res) => {
+  console.log("📥 Received POST /send");
+  const { message, subject, to, conversationLink } = req.body;
+  console.log("➡️ Sending email to:", to);
   const { message, subject, to, conversationLink } = req.body;
   const quoteFile = req.files["quoteFile"]?.[0];
   const convFile = req.files["conversation"]?.[0];
