@@ -1,4 +1,4 @@
-// email-backend/server.js (Resend version)
+// email-backend/server.cjs (Resend version)
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -32,9 +32,10 @@ app.post("/send", upload.fields([
   { name: "conversation" }
 ]), async (req, res) => {
   console.log("📥 Received POST /send");
+
   const { message, subject, to, conversationLink } = req.body;
   console.log("➡️ Sending email to:", to);
-  const { message, subject, to, conversationLink } = req.body;
+
   const quoteFile = req.files["quoteFile"]?.[0];
   const convFile = req.files["conversation"]?.[0];
 
@@ -60,12 +61,10 @@ app.post("/send", upload.fields([
     }
 
     const fullBody = message + (conversationLink ? `\n\nConversation Link: ${conversationLink}` : '');
-
     const sender = req.body.sender || process.env.RESEND_SENDER;
 
-	await resend.emails.send({
-		from: sender,
-
+    await resend.emails.send({
+      from: sender,
       to,
       subject,
       text: fullBody,
@@ -75,13 +74,13 @@ app.post("/send", upload.fields([
     if (quoteFile) fs.unlinkSync(quoteFile.path);
     if (convFile) fs.unlinkSync(convFile.path);
 
+    console.log("✅ Email sent via Resend");
     res.status(200).json({ message: "Email sent via Resend" });
   } catch (error) {
     console.error("❌ Resend error:", error);
     res.status(500).send("Failed to send email.");
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`🚀 Resend email server running on port ${PORT}`);
