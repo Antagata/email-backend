@@ -58,8 +58,11 @@ app.post("/send", upload.fields([
 
     const fullBody = message + (conversationLink ? `\n\nConversation Link: ${conversationLink}` : '');
 
-    await resend.emails.send({
-      from: process.env.RESEND_SENDER,
+    const sender = req.body.sender || process.env.RESEND_SENDER;
+
+	await resend.emails.send({
+		from: sender,
+
       to,
       subject,
       text: fullBody,
