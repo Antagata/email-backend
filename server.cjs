@@ -8,7 +8,7 @@ const { Resend } = require("resend");
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 
 const allowedOrigins = ['http://localhost:5173', 'https://quote-management-system-57438.web.app'];
 
