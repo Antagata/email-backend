@@ -1,4 +1,6 @@
 // email-backend/server.cjs (SendGrid version with attachments and CC)
+const XLSX = require('xlsx-js-style');
+
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
