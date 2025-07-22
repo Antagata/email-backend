@@ -1,8 +1,9 @@
-// email-backend/server.cjs (SendGrid version with dynamic FROM/CC based on salesperson)
+// email-backend/server.cjs (SendGrid version with attachments and CC)
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 
 const sgMail = require("@sendgrid/mail");
@@ -12,7 +13,6 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 const allowedOrigins = ['http://localhost:5173', 'https://quote-management-system-57438.web.app'];
-
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
@@ -26,7 +26,7 @@ app.use(cors({
 
 const upload = multer({ dest: "uploads/" });
 
-// Define Salesperson email map
+// SALESPERSON_EMAIL_MAP (duplicate from frontend for consistency)
 const SALESPERSON_EMAIL_MAP = {
   "a.saurina": "alberto.saurina@avu.eu",
   "n.huerga": "Natalia.Huerga@avu.eu",
@@ -64,57 +64,56 @@ app.post("/send", upload.fields([
   const convFile = req.files["conversation"]?.[0];
 
   const finalTo = "export@avu.wine";
+  const defaultEmail = "logistics@avu.wine";
 
-  // Determine from + cc email
-  const mappedSender = SALESPERSON_EMAIL_MAP[sender] || 'logistics@avu.wine';
-  const useLogisticsAsSender = sender === "GuestQEX";
+  // Extract salesperson ID from email if possible
+  const salespersonId = sender?.split('@')[0]?.toLowerCase() || "guestqex";
+  const mappedSenderEmail = SALESPERSON_EMAIL_MAP[salespersonId] || defaultEmail;
 
-  const fromEmail = useLogisticsAsSender ? 'logistics@avu.wine' : mappedSender;
-  const ccEmail = useLogisticsAsSender ? undefined : mappedSender;
-  const replyToEmail = useLogisticsAsSender ? undefined : mappedSender;
+  console.log("🧭 Sender ID:", salespersonId);
+  console.log("📧 From:", mappedSenderEmail);
+
+  const attachments = [];
+  if (quoteFile) {
+    const content = fs.readFileSync(quoteFile.path).toString("base64");
+    attachments.push({
+      content,
+      filename: quoteFile.originalname,
+      type: quoteFile.mimetype,
+      disposition: "attachment"
+    });
+  }
+
+  if (convFile) {
+    const content = fs.readFileSync(convFile.path).toString("base64");
+    attachments.push({
+      content,
+      filename: convFile.originalname,
+      type: convFile.mimetype,
+      disposition: "attachment"
+    });
+  }
+
+  const fullBody = message + (conversationLink ? `\n\nConversation Link: ${conversationLink}` : '');
+
+  const emailPayload = {
+    to: finalTo,
+    from: mappedSenderEmail,
+    cc: mappedSenderEmail,
+    replyTo: mappedSenderEmail,
+    subject,
+    text: fullBody,
+    attachments,
+  };
 
   try {
-    const attachments = [];
-
-    if (quoteFile) {
-      const content = fs.readFileSync(quoteFile.path).toString("base64");
-      attachments.push({
-        content,
-        filename: quoteFile.originalname,
-        type: quoteFile.mimetype,
-        disposition: "attachment"
-      });
-    }
-
-    if (convFile) {
-      const content = fs.readFileSync(convFile.path).toString("base64");
-      attachments.push({
-        content,
-        filename: convFile.originalname,
-        type: convFile.mimetype,
-        disposition: "attachment"
-      });
-    }
-
-    const fullBody = message + (conversationLink ? `\n\nConversation Link: ${conversationLink}` : '');
-
-    const emailPayload = {
-      to: finalTo,
-      from: fromEmail,
-      subject,
-      text: fullBody,
-      cc: ccEmail,
-      replyTo: replyToEmail,
-      attachments,
-    };
-
     console.log("📤 Sending email payload via SendGrid:", {
       to: finalTo,
-      from: fromEmail,
-      cc: ccEmail,
-      replyTo: replyToEmail,
+      from: emailPayload.from,
+      cc: emailPayload.cc,
+      replyTo: emailPayload.replyTo,
       subject,
-      attachments: attachments.map(a => a.filename)
+      attachments: attachments.map(a => a.filename),
     });
 
     await sgMail.send(emailPayload);
