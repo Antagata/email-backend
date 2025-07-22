@@ -67,8 +67,10 @@ app.post("/send", upload.fields([
   const defaultEmail = "logistics@avu.wine";
 
   // Extract salesperson ID from email if possible
-  const salespersonId = sender?.split('@')[0]?.toLowerCase() || "guestqex";
-  const mappedSenderEmail = SALESPERSON_EMAIL_MAP[salespersonId] || defaultEmail;
+  // Find if sender email is one of the known emails (from dropdown or Microsoft login)
+  const knownEmails = Object.values(SALESPERSON_EMAIL_MAP);
+  const mappedSenderEmail = knownEmails.includes(sender) ? sender : defaultEmail;
+
 
   console.log("🧭 Sender ID:", salespersonId);
   console.log("📧 From:", mappedSenderEmail);
