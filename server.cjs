@@ -1,13 +1,12 @@
-// email-backend/server.cjs (SendGrid version with attachments and CC)
+// email-backend/server.cjs (SendGrid version with dynamic FROM/CC based on salesperson)
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const fs = require("fs");
-const path = require("path");
 require("dotenv").config();
 
 const sgMail = require("@sendgrid/mail");
-sgMail.setApiKey(process.env.SENDGRID_API_KEY); // Must be set in .env
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -27,18 +26,52 @@ app.use(cors({
 
 const upload = multer({ dest: "uploads/" });
 
+// Define Salesperson email map
+const SALESPERSON_EMAIL_MAP = {
+  "a.saurina": "alberto.saurina@avu.eu",
+  "n.huerga": "Natalia.Huerga@avu.eu",
+  "a.ronnenberg": "anna.ronnenberg@avu.wine",
+  "a.anedda": "anna.anedda@avu.wine",
+  "a.perros": "Alexandros.Perros@avu.wine",
+  "a.veronesi": "Alessandra.Veronesi@avu.wine",
+  "c.boccato": "Camilla.Boccato@avu.wine",
+  "c.netter": "christina.netter@avu.wine",
+  "f.frontini": "fabio.frontini@avu.wine",
+  "f.sempol": "francois.sempol@avu.wine",
+  "g.bevilacqua": "giacomo.bevilacqua@avu.wine",
+  "m.bellone": "massimiliano.bellone@avu.wine",
+  "n.boldrini": "nicolas.boldrini@avu.wine",
+  "a.mascheroni": "Alberto.Mascheroni@avu.wine",
+  "r.aragón": "raul.aragon@avu.eu",
+  "v.vargiu": "Valentina.Vargiu@avu.wine",
+  "d.gatto": "debora.gatto@avu.wine",
+  "f.hutter": "Fabienne.Hutter@avu.wine",
+  "m.africani": "marco.africani@avu.wine",
+  "p.leroux": "Pierre.Leroux@avu.wine",
+  "a.mauracher": "Ariane.Mauracher@avu.wine",
+  "d.huber": "david.huber@avu.wine",
+  "GuestQEX": "logistics@avu.wine"
+};
+
 app.post("/send", upload.fields([
   { name: "quoteFile" },
   { name: "conversation" }
 ]), async (req, res) => {
   console.log("📥 Received POST /send");
 
-  const { message, subject, to, conversationLink, sender } = req.body;
+  const { message, subject, conversationLink, sender } = req.body;
   const quoteFile = req.files["quoteFile"]?.[0];
   const convFile = req.files["conversation"]?.[0];
 
   const finalTo = "export@avu.wine";
-  const finalCc = sender && sender.endsWith("@avu.wine") ? sender : undefined;
+
+  // Determine from + cc email
+  const mappedSender = SALESPERSON_EMAIL_MAP[sender] || 'logistics@avu.wine';
+  const useLogisticsAsSender = sender === "GuestQEX";
+
+  const fromEmail = useLogisticsAsSender ? 'logistics@avu.wine' : mappedSender;
+  const ccEmail = useLogisticsAsSender ? undefined : mappedSender;
+  const replyToEmail = useLogisticsAsSender ? undefined : mappedSender;
 
   try {
     const attachments = [];
@@ -67,19 +100,21 @@ app.post("/send", upload.fields([
 
     const emailPayload = {
       to: finalTo,
-      from: finalCc || 'logistics@avu.wine', // fallback if no sender
+      from: fromEmail,
       subject,
       text: fullBody,
-      cc: finalCc,
+      cc: ccEmail,
+      replyTo: replyToEmail,
       attachments,
     };
 
     console.log("📤 Sending email payload via SendGrid:", {
       to: finalTo,
-      cc: finalCc,
-      from: emailPayload.from,
+      from: fromEmail,
+      cc: ccEmail,
+      replyTo: replyToEmail,
       subject,
-      attachments: attachments.map(a => a.filename),
+      attachments: attachments.map(a => a.filename)
     });
 
     await sgMail.send(emailPayload);
