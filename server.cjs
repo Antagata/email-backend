@@ -72,7 +72,7 @@ app.post("/send", upload.fields([
   const mappedSenderEmail = knownEmails.includes(sender) ? sender : defaultEmail;
 
 
-  console.log("🧭 Sender ID:", salespersonId);
+  console.log("🧭 Sender:", sender);
   console.log("📧 From:", mappedSenderEmail);
 
   const attachments = [];
