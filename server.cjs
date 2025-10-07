@@ -50,6 +50,8 @@ const SALESPERSON_EMAIL_MAP = {
   "p.leroux": "Pierre.Leroux@avu.wine",
   "a.mauracher": "Ariane.Mauracher@avu.wine",
   "d.huber": "david.huber@avu.wine",
+  "n.mazzola":"Nicholas.Mazzola@avu.wine",
+  "a.Garcia": "Aroa.Garcia@avu.eu",
   "GuestQEX": "logistics@avu.wine"
 };
 
