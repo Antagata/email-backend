@@ -1,9 +1,8 @@
-// email-backend/server.cjs (SendGrid version with attachments and CC)
+// email-backend/server.cjs
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const fs = require("fs");
-const path = require("path");
 require("dotenv").config();
 
 const sgMail = require("@sendgrid/mail");
@@ -26,7 +25,6 @@ app.use(cors({
 
 const upload = multer({ dest: "uploads/" });
 
-// SALESPERSON_EMAIL_MAP (duplicate from frontend for consistency)
 const SALESPERSON_EMAIL_MAP = {
   "a.saurina": "alberto.saurina@avu.eu",
   "n.huerga": "Natalia.Huerga@avu.eu",
@@ -50,7 +48,7 @@ const SALESPERSON_EMAIL_MAP = {
   "p.leroux": "Pierre.Leroux@avu.wine",
   "a.mauracher": "Ariane.Mauracher@avu.wine",
   "d.huber": "david.huber@avu.wine",
-  "n.mazzola":"Nicholas.Mazzola@avu.wine",
+  "n.mazzola": "Nicholas.Mazzola@avu.wine",
   "a.Garcia": "Aroa.Garcia@avu.eu",
   "GuestQEX": "logistics@avu.wine"
 };
@@ -61,23 +59,26 @@ app.post("/send", upload.fields([
 ]), async (req, res) => {
   console.log("📥 Received POST /send");
 
-  const { message, subject, conversationLink, sender } = req.body;
+  const message = req.body?.message || "";
+  const subject = req.body?.subject || "No Subject";
+  const conversationLink = req.body?.conversationLink || "";
+  const sender = req.body?.sender || "";
+
+  console.log("📨 Parsed fields:", { message, subject, sender, conversationLink });
+
   const quoteFile = req.files["quoteFile"]?.[0];
   const convFile = req.files["conversation"]?.[0];
 
   const finalTo = "export@avu.wine";
   const defaultEmail = "logistics@avu.wine";
-
-  // Extract salesperson ID from email if possible
-  // Find if sender email is one of the known emails (from dropdown or Microsoft login)
   const knownEmails = Object.values(SALESPERSON_EMAIL_MAP);
   const mappedSenderEmail = knownEmails.includes(sender) ? sender : defaultEmail;
-
 
   console.log("🧭 Sender:", sender);
   console.log("📧 From:", mappedSenderEmail);
 
   const attachments = [];
+
   if (quoteFile) {
     const content = fs.readFileSync(quoteFile.path).toString("base64");
     attachments.push({
