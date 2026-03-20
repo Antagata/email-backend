@@ -27,11 +27,12 @@ const upload = multer({ dest: "uploads/" });
 
 const SALESPERSON_EMAIL_MAP = {
   "a.saurina": "alberto.saurina@avu.eu",
-  "n.huerga": "Natalia.Huerga@avu.eu",
+  "a.ferrari": "Andrea.Ferrari@avu.wine",
   "a.ronnenberg": "anna.ronnenberg@avu.wine",
   "a.anedda": "anna.anedda@avu.wine",
   "a.perros": "Alexandros.Perros@avu.wine",
-  "a.veronesi": "Alessandra.Veronesi@avu.wine",
+  "a.peduzzi": "Arno.Peduzzi@avu.wine",
+  "a.li": "Ao.Li@avu.wine",
   "c.boccato": "Camilla.Boccato@avu.wine",
   "c.netter": "christina.netter@avu.wine",
   "f.frontini": "fabio.frontini@avu.wine",
@@ -47,6 +48,7 @@ const SALESPERSON_EMAIL_MAP = {
   "m.africani": "marco.africani@avu.wine",
   "p.leroux": "Pierre.Leroux@avu.wine",
   "a.mauracher": "Ariane.Mauracher@avu.wine",
+  "m.formichelli": "marc.formichelli@avu.wine",
   "d.huber": "david.huber@avu.wine",
   "n.mazzola": "Nicholas.Mazzola@avu.wine",
   "a.Garcia": "Aroa.Garcia@avu.eu",
@@ -71,11 +73,32 @@ app.post("/send", upload.fields([
 
   const finalTo = "export@avu.wine";
   const defaultEmail = "logistics@avu.wine";
-  const knownEmails = Object.values(SALESPERSON_EMAIL_MAP);
-  const mappedSenderEmail = knownEmails.includes(sender) ? sender : defaultEmail;
+  // IMPORTANT (SendGrid): `from` must be a verified Sender Identity (or domain-authenticated).
+  // If we set `from` to a salesperson mailbox that isn't verified in SendGrid, SendGrid will reject
+  // the request with: "The from address does not match a verified Sender Identity".
+  //
+  // Solution: always use a single verified `from` address, and route the salesperson mailbox via
+  // `replyTo` + `cc` so replies still go back to the salesperson.
+  const verifiedFromEmail = process.env.SENDGRID_FROM_EMAIL || defaultEmail;
+
+  // Accept either a salesperson ID (e.g. "d.gatto") or an email address in `sender`.
+  const normalizedSender = String(sender || "").trim();
+  const senderFromId = SALESPERSON_EMAIL_MAP[normalizedSender];
+  const candidateSenderEmail = senderFromId || normalizedSender;
+
+  const knownEmailsLower = new Set(
+    Object.values(SALESPERSON_EMAIL_MAP)
+      .filter(Boolean)
+      .map(e => String(e).trim().toLowerCase())
+  );
+
+  const mappedSenderEmail = knownEmailsLower.has(String(candidateSenderEmail).toLowerCase())
+    ? candidateSenderEmail
+    : defaultEmail;
 
   console.log("🧭 Sender:", sender);
-  console.log("📧 From:", mappedSenderEmail);
+  console.log("📧 From:", verifiedFromEmail);
+  console.log("↩️ Reply-To:", mappedSenderEmail);
 
   const attachments = [];
 
@@ -103,7 +126,7 @@ app.post("/send", upload.fields([
 
   const emailPayload = {
     to: finalTo,
-    from: mappedSenderEmail,
+    from: verifiedFromEmail,
     cc: mappedSenderEmail,
     replyTo: mappedSenderEmail,
     subject,
