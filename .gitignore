@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Local env / secrets
+.env
+.env.*
+
+# Uploads created by multer
+auth.json
+uploads/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
