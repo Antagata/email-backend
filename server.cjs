@@ -33,7 +33,6 @@ const SALESPERSON_EMAIL_MAP = {
   "a.perros": "Alexandros.Perros@avu.wine",
   "a.peduzzi": "Arno.Peduzzi@avu.wine",
   "a.li": "Ao.Li@avu.wine",
-  "c.boccato": "Camilla.Boccato@avu.wine",
   "c.netter": "christina.netter@avu.wine",
   "f.frontini": "fabio.frontini@avu.wine",
   "f.sempol": "francois.sempol@avu.wine",
@@ -53,6 +52,16 @@ const SALESPERSON_EMAIL_MAP = {
   "n.mazzola": "Nicholas.Mazzola@avu.wine",
   "a.Garcia": "Aroa.Garcia@avu.eu",
   "GuestQEX": "logistics@avu.wine"
+};
+
+const SALESPERSON_EMAIL_MAP_LOWER = Object.fromEntries(
+  Object.entries(SALESPERSON_EMAIL_MAP).map(([key, value]) => [String(key).trim().toLowerCase(), value])
+);
+
+const isTrustedInternalEmail = (value) => {
+  const email = String(value || '').trim().toLowerCase();
+  if (!email.includes('@')) return false;
+  return email.endsWith('@avu.wine') || email.endsWith('@avu.eu');
 };
 
 app.post("/send", upload.fields([
@@ -83,7 +92,7 @@ app.post("/send", upload.fields([
 
   // Accept either a salesperson ID (e.g. "d.gatto") or an email address in `sender`.
   const normalizedSender = String(sender || "").trim();
-  const senderFromId = SALESPERSON_EMAIL_MAP[normalizedSender];
+  const senderFromId = SALESPERSON_EMAIL_MAP[normalizedSender] || SALESPERSON_EMAIL_MAP_LOWER[normalizedSender.toLowerCase()];
   const candidateSenderEmail = senderFromId || normalizedSender;
 
   const knownEmailsLower = new Set(
@@ -92,11 +101,13 @@ app.post("/send", upload.fields([
       .map(e => String(e).trim().toLowerCase())
   );
 
-  const mappedSenderEmail = knownEmailsLower.has(String(candidateSenderEmail).toLowerCase())
-    ? candidateSenderEmail
+  const candidateLower = String(candidateSenderEmail).trim().toLowerCase();
+  const mappedSenderEmail = (knownEmailsLower.has(candidateLower) || isTrustedInternalEmail(candidateLower))
+    ? String(candidateSenderEmail).trim()
     : defaultEmail;
 
   console.log("🧭 Sender:", sender);
+  console.log("🧭 Sender (normalized):", normalizedSender);
   console.log("📧 From:", verifiedFromEmail);
   console.log("↩️ Reply-To:", mappedSenderEmail);
 
@@ -152,8 +163,12 @@ app.post("/send", upload.fields([
     console.log("✅ Email sent via SendGrid");
     res.status(200).json({ message: "Email sent via SendGrid" });
   } catch (error) {
-    console.error("❌ SendGrid error:", error.response?.body || error.message);
-    res.status(500).send("Failed to send email.");
+    const errorBody = error.response?.body;
+    console.error("❌ SendGrid error:", errorBody || error.message);
+    res.status(500).json({
+      error: "Failed to send email via SendGrid",
+      details: errorBody || { message: error.message },
+    });
   }
 });
 
